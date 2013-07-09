@@ -78,6 +78,7 @@ class ServiceManager::Service
       process.kill("KILL") # ok... no more Mr. Nice Guy.
       process.wait
     end
+    stop_pid_process! if running_via_pid_file?
     puts "Server #{colorized_service_name} (#{process.pid}) is shut down"
     self.process = nil
     FileUtils.rm(pid_file) if manage_pid_file && File.exist?(pid_file)
@@ -149,4 +150,19 @@ protected
       sleep 0.25 while !running_via_pid_file?
     end
   end
+
+  def stop_pid_process!
+    pid_value = File.read(pid_file)
+    puts "Process #{colorized_service_name} is running with pid #{pid_value} (via file #{pid_file})"
+    begin
+      Process.kill(Signal.list['TERM'], pid_value)
+    rescue => e
+      puts "Error #{e} when shutting down #{colorized_service_name} (pid #{pid_value})"
+    end
+    if running_via_pid_file?
+      puts "Process #{colorized_service_name} is still running with pid #{pid_value} (via file #{pid_file}). Killing it!"
+      Process.kill(Signal.list['KILL'], pid_value)
+    end
+  end
+
 end
