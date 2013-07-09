@@ -108,7 +108,7 @@ class ServiceManager::Service
 protected
 
   def running_via_pid_file?
-    Process.kill(0, File.read(pid_file).to_i)
+    pid_file && Process.kill(0, File.read(pid_file).to_i)
   rescue Errno::ESRCH, Errno::ENOENT
     return false
   end
@@ -152,16 +152,21 @@ protected
   end
 
   def stop_pid_process!
-    pid_value = File.read(pid_file)
-    puts "Process #{colorized_service_name} is running with pid #{pid_value} (via file #{pid_file})"
     begin
+      pid_value = File.read(pid_file).to_i
+      puts "Process #{colorized_service_name} is running with pid #{pid_value} (via file #{pid_file})"
       Process.kill(Signal.list['TERM'], pid_value)
     rescue => e
-      puts "Error #{e} when shutting down #{colorized_service_name} (pid #{pid_value})"
+      puts "Error #{e} when shutting down #{colorized_service_name} (pid #{pid_value rescue nil})"
     end
     if running_via_pid_file?
-      puts "Process #{colorized_service_name} is still running with pid #{pid_value} (via file #{pid_file}). Killing it!"
-      Process.kill(Signal.list['KILL'], pid_value)
+      puts "Process #{colorized_service_name} is still running with pid #{pid_value} (via file #{pid_file rescue nil}). Killing it!"
+      begin
+        Process.kill(Signal.list['KILL'], pid_value)
+        FileUtils.rm(pid_file) if  File.exist?(pid_file)
+      rescue => e
+        puts "Giving up... #{e}"
+      end
     end
   end
 
